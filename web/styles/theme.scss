@@ -533,6 +533,17 @@
   .sb-line-comment {
     background-color: rgba(255, 255, 0, 0.5);
   }
+
+  .sb-recognized-candidate {
+    color: green;
+    background-color: rgba(77, 141, 255, 0.07);
+    border-radius: 5px;
+    padding: 0 5px;
+    text-decoration: none;
+    cursor: crosshair;
+  }
+
+
 }
 
 html[data-theme="dark"] {
