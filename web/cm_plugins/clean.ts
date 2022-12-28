@@ -13,11 +13,11 @@ import { taskListPlugin } from "./task.ts";
 import { cleanWikiLinkPlugin } from "./wiki_link.ts";
 import { cleanCommandLinkPlugin } from "./command_link.ts";
 import { fencedCodePlugin } from "./fenced_code.ts";
-import { nerPlugin } from './ner.ts';
+import { recognizerPlugin } from './recognizer.ts';
 
 export function cleanModePlugins(editor: Editor) {
   return [
-    nerPlugin(editor),
+    recognizerPlugin(editor),
     linkPlugin(editor),
     directivePlugin(),
     blockquotePlugin(),

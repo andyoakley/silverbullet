@@ -2,7 +2,6 @@ import { Decoration, EditorView, syntaxTree, WidgetType } from "../deps.ts";
 import { Editor } from "../editor.tsx";
 import {
   decoratorStateField,
-  invisibleDecoration,
   isCursorInRange,
 } from "./util.ts";
 
@@ -11,21 +10,20 @@ import plg from 'compromise-stats';
 nlp.plugin(plg);
 
 
-
-
-class NamedEntityWidget extends WidgetType {
+class RecognizedWidget extends WidgetType {
   constructor(
     readonly entity: string,
     readonly editorView: EditorView,
     readonly from: number,
-    readonly to: number
+    readonly to: number,
+    readonly className: string
   ) {
     super();
   }
   toDOM(): HTMLElement {
     const el = document.createElement("span");
     el.textContent = this.entity;
-    el.className = "sb-recognized-candidate";
+    el.className = this.className;
     el.setAttribute("title", "Hotlink " + this.entity);
     el.addEventListener("click", e => {
       this.editorView.dispatch({
@@ -43,7 +41,9 @@ class NamedEntityWidget extends WidgetType {
 
 
 
-export function nerPlugin(editor: Editor) {
+
+
+export function recognizerPlugin(editor: Editor) {
 
   function matchesPageName(term: string) {
     const allPages = editor.space.listPages();
@@ -60,8 +60,6 @@ export function nerPlugin(editor: Editor) {
   }
 
 
-  // TODO: also add sentence term spotter
-
   return decoratorStateField(state => {
 
     const widgets: any[] = [];
@@ -72,11 +70,9 @@ export function nerPlugin(editor: Editor) {
         if (type.name === "Paragraph") {
           const rawText = state.sliceDoc(from, to);
 
-
           let doc = nlp(rawText);
 
-          // TODO exclude punction
-
+          /* check for recognized entities */
           for (let otopic of doc.topics().out('array')) {
             let topic = stripSurroundingPunctation(otopic);
 
@@ -87,7 +83,7 @@ export function nerPlugin(editor: Editor) {
             if (rawText.slice(local_from - from, local_from - from + 2) === "[[") continue;
 
             const dec = Decoration.replace({
-              widget: new NamedEntityWidget(topic, editor.editorView!, local_from, local_to)
+              widget: new RecognizedWidget(topic, editor.editorView!, local_from, local_to, "sb-recognized-entity")
             });
             widgets.push(dec.range(local_from, local_to));
           }
@@ -101,7 +97,7 @@ export function nerPlugin(editor: Editor) {
             let local_from = from + rawText.toLowerCase().indexOf(ngram.toLowerCase());
             let local_to = local_from + ngram.length;
             const dec = Decoration.replace({
-              widget: new NamedEntityWidget(ngram, editor.editorView!, local_from, local_to)
+              widget: new RecognizedWidget(ngram, editor.editorView!, local_from, local_to, "sb-recognized-page")
             });
             widgets.push(dec.range(local_from, local_to));
           }
