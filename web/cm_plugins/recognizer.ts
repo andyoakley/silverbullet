@@ -80,7 +80,7 @@ export function recognizerPlugin(editor: Editor) {
             let local_to = local_from + topic.length;
 
             // don't highlight existing links
-            if (rawText.slice(local_from - from, local_from - from + 2) === "[[") continue;
+            if (rawText.slice(local_from - from, local_to).indexOf("[[") >= 0) continue;
 
             const dec = Decoration.replace({
               widget: new RecognizedWidget(topic, editor.editorView!, local_from, local_to, "sb-recognized-entity")
