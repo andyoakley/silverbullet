@@ -45,19 +45,13 @@ class RecognizedWidget extends WidgetType {
 
 export function recognizerPlugin(editor: Editor) {
 
-  function matchesPageName(term: string) {
-    const allPages = editor.space.listPages();
-    for (const pageMeta of allPages) {
-      if (pageMeta.name.toUpperCase() === term.toUpperCase()) {
-        return pageMeta.name;
-      }
-    }
-    return;
+  performance.mark('start_hashmap')
+  const allPages: Map<string, string> = new Map<string, string>();
+  for (const page of editor.space.listPages()) {
+    allPages.set(page.name.toLowerCase(), page.name);
   }
-
-  function stripSurroundingPunctation(s: string) {
-    return s.replace(/^[-\/]/, "").replace(/[,;.]$/, "");
-  }
+  performance.mark('end_hashmap')
+  performance.measure('hashmap', 'start_hashmap', 'end_hashmap')
 
 
   return decoratorStateField(state => {
@@ -69,38 +63,46 @@ export function recognizerPlugin(editor: Editor) {
 
         if (type.name === "Paragraph") {
           const rawText = state.sliceDoc(from, to);
-
-          let doc = nlp(rawText);
+          const rawTextLower = rawText.toLowerCase();
+          const doc = nlp(rawText);
 
           /* check for recognized entities */
-          for (let otopic of doc.topics().out('array')) {
-            let topic = stripSurroundingPunctation(otopic);
-
-            let local_from = from + rawText.indexOf(topic);
-            let local_to = local_from + topic.length;
-
+          performance.mark("before_nlp")
+          for (let topic of doc.topics().json({ offset: true })) {
             // don't highlight existing links
-            if (rawText.slice(local_from - from, local_to).indexOf("[[") >= 0) continue;
+            if (topic.text.indexOf("[[") >= 0) continue;
+
+            const recognized_from = from + topic.offset.start;
+            const recognized_to = recognized_from + topic.offset.length;
 
             const dec = Decoration.replace({
-              widget: new RecognizedWidget(topic, editor.editorView!, local_from, local_to, "sb-recognized-entity")
+              widget: new RecognizedWidget(topic.text, editor.editorView!, recognized_from, recognized_to, "sb-recognized-entity")
             });
-            widgets.push(dec.range(local_from, local_to));
+            widgets.push(dec.range(recognized_from, recognized_to));
           }
+          performance.mark("after_nlp")
+          performance.measure('nlp_cost', 'before_nlp', 'after_nlp');
 
 
           /* check for unlinked pages */
-          for (let ng of doc.ngrams({ min: 1, max: 4 })) {
-            let ngram = matchesPageName(ng.normal);
-            if (!ngram) continue;
+          performance.mark("before_ngrams")
+          for (let ng of doc.ngrams({ min: 1, max: 3 })) {
+            performance.mark('before_page_exists');
+            let page_name = allPages.get(ng.normal);
+            performance.mark('after_page_exists');
+            performance.measure('page_exists', 'before_page_exists', 'after_page_exists');
+            if (!page_name) continue;
 
-            let local_from = from + rawText.toLowerCase().indexOf(ngram.toLowerCase());
-            let local_to = local_from + ngram.length;
+            let recognized_from = from + rawTextLower.indexOf(ng.normal);
+            let recognized_to = recognized_from + ng.normal.length;
             const dec = Decoration.replace({
-              widget: new RecognizedWidget(ngram, editor.editorView!, local_from, local_to, "sb-recognized-page")
+              widget: new RecognizedWidget(page_name, editor.editorView!, recognized_from, recognized_to, "sb-recognized-page")
             });
-            widgets.push(dec.range(local_from, local_to));
+            widgets.push(dec.range(recognized_from, recognized_to));
           }
+
+          performance.mark("after_ngrams")
+          performance.measure("ngram_cost", "before_ngrams", "after_ngrams")
         }
       },
     });
